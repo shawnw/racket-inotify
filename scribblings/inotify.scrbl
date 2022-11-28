@@ -35,7 +35,7 @@ Returns true if the given argument is an inotify instance.
 
 Returns a new inotify session instance.
 
-Wrapper around the C @hyperlink["https://www.man7.org/linux/man-pages/man2/inotify_init.2.html"]}{@tt{inotify_init(2)}} syscall.
+Wrapper around the C @hyperlink["https://www.man7.org/linux/man-pages/man2/inotify_init.2.html"]{@tt{inotify_init(2)}} syscall.
 
 }
 
@@ -48,7 +48,6 @@ Closes and frees operating system resources associated with the instance.
 
 @defproc[(inotify-watch? [obj any/c]) boolean?]{
 
-
 Returns true if the given argument is an inotify watch descriptor.
 
 }
@@ -60,7 +59,7 @@ symbols with the same names as the C constants - @code{'IN_CREATE},
 @code{'IN_MODIFY}, etc. Returns a watch descriptor object that can be
 used to remove the watch, and used as a key for returned events.
 
-Wrapper around the C @hyperlink["https://www.man7.org/linux/man-pages/man2/inotify_rm_watch.2.html"]}{@tt{inotify_add_watch(2)}} syscall.
+Wrapper around the C @hyperlink["https://www.man7.org/linux/man-pages/man2/inotify_rm_watch.2.html"]{@tt{inotify_add_watch(2)}} syscall.
 
 }
 
@@ -74,7 +73,16 @@ Adds all the given files and their desired events to the inotify watch list.
 
 Removes the given watch descriptor from the inotify instance's monitored events.
 
-Wrapper around the C @hyperlink["https://www.man7.org/linux/man-pages/man2/inotify_rm_watch.2.html"]}{@tt{inotify_rm_watch(2)}} syscall.
+Wrapper around the C @hyperlink["https://www.man7.org/linux/man-pages/man2/inotify_rm_watch.2.html"]{@tt{inotify_rm_watch(2)}} syscall.
+
+}
+
+@defproc*[([(call-with-inotify-instance [proc (-> inotify-instance? any)]) any]
+           [(call-with-inotify-instance [watches (listof (list/c path-string? (listof symbol?)))] [proc (-> inotify-instance? (listof inotify-watch?) any)]) any])]{
+
+Create an inotify instance and pass it to @code{proc}, optionally
+creating the given watch instances and also passing them as a second
+argument. The inotify instance is closed when @code{call-with-inotify-instance} returns. Returns the value(s) returned by @code{proc}.
 
 }
 

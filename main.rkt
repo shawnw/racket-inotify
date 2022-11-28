@@ -15,6 +15,9 @@
   [inotify-watch? predicate/c]
   [open-inotify-instance (--> inotify-instance?)]
   [close-inotify-instance (--> inotify-instance? void?)]
+  [call-with-inotify-instance
+   (case-> (--> (--> inotify-instance? any) any)
+           (--> (listof (list/c path-string? (listof symbol?))) (--> inotify-instance? (listof inotify-watch?) any) any))]
   [inotify-set-watch (--> inotify-instance? path-string? (listof symbol?) inotify-watch?)]
   [inotify-set-watch* (--> inotify-instance? (listof (list/c path-string? (listof symbol?))) (listof inotify-watch?))]
   [inotify-remove-watch (--> inotify-instance? inotify-watch? void?)]
@@ -58,6 +61,18 @@
 (define (close-inotify-instance inot)
   (unsafe-fd->evt (inotify-instance-fd inot) 'remove)
   (close-input-port (inotify-instance-port inot)))
+
+(define call-with-inotify-instance
+  (case-lambda
+    [(proc) (call-with-inotify-instance '() (lambda (inot wds) (proc inot)))]
+    [(watches proc)
+     (let* ([inot (open-inotify-instance)]
+            [wds (inotify-set-watch* inot watches)])
+       (call-with-values
+        (lambda () (proc inot wds))
+        (lambda results
+          (close-inotify-instance inot)
+          (apply values results))))]))
 
 (define flags '#hasheq( (IN_ACCESS . 1) (IN_ATTRIB . 4) (IN_CLOSE_WRITE . 8) (IN_CLOSE_NOWRITE . 16) (IN_CREATE . 256) (IN_DELETE . 512) (IN_DELETE_SELF . 1024) (IN_MODIFY . 2) (IN_MOVE_SELF . 2048) (IN_MOVED_FROM . 64) (IN_MOVED_TO . 128) (IN_OPEN . 32) (IN_MOVE . 192) (IN_CLOSE . 24) (IN_DONT_FOLLOW . 33554432) (IN_EXCL_UNLINK . 67108864) (IN_MASK_ADD . 536870912) (IN_ONESHOT . 2147483648) (IN_ONLYDIR . 16777216) (IN_IGNORED . 32768) (IN_ISDIR . 1073741824) (IN_Q_OVERFLOW . 16384) (IN_UNMOUNT . 8192) (IN_ALL_EVENTS . 4095)))
 
@@ -130,8 +145,6 @@
   ;; required by another module.
 
   (define tmpdir (make-temporary-directory))
-  (define inot (open-inotify-instance))
-  (define wd (inotify-set-watch inot tmpdir '(IN_CREATE)))
 
   (define tid
     (thread
@@ -142,15 +155,19 @@
        (display-to-file 4 (build-path tmpdir "d.txt"))
        )))
 
-  (check-equal? (path->string (inotify-event-name (read-inotify-event inot))) "a.txt")
-  (check-equal? (path->string (inotify-event-name (sync inot))) "b.txt")
-  (define a-b-watches (inotify-set-watch* inot `((,(build-path tmpdir "a.txt") (IN_OPEN)) (,(build-path tmpdir "b.txt") (IN_OPEN)))))
-  (check-equal? (length a-b-watches) 2)
-  (check-equal? (inotify-event-flags (read-inotify-event inot)) '(IN_CREATE))
-  (check-equal? (inotify-event-wd (read-inotify-event inot)) wd)
-  (check-not-exn (lambda () (inotify-remove-watch inot (car a-b-watches))))
-  (thread-wait tid)
-  (delete-directory/files tmpdir)
-  (check-equal? (inotify-event-flags (read-inotify-event inot)) '(IN_IGNORED))
-
-  (close-inotify-instance inot))
+  (define-values (a b)
+    (call-with-inotify-instance
+     (list (list tmpdir '(IN_CREATE)))
+     (lambda (inot wds)
+       (test-equal? "create a.txt" (path->string (inotify-event-name (read-inotify-event inot))) "a.txt")
+       (test-equal? "create b.txt" (path->string (inotify-event-name (sync inot))) "b.txt")
+       (define a-b-watches (inotify-set-watch* inot `((,(build-path tmpdir "a.txt") (IN_OPEN)) (,(build-path tmpdir "b.txt") (IN_OPEN)))))
+       (test-equal? "set multiple watches" (length a-b-watches) 2)
+       (test-equal? "create event" (inotify-event-flags (read-inotify-event inot)) '(IN_CREATE))
+       (test-equal? "watch descriptor equals" (inotify-event-wd (read-inotify-event inot)) (car wds))
+       (test-not-exn "remove watch" (lambda () (inotify-remove-watch inot (car a-b-watches))))
+       (thread-wait tid)
+       (delete-directory/files tmpdir)
+       (test-equal? "IN_IGNORED on file delete" (inotify-event-flags (read-inotify-event inot)) '(IN_IGNORED))
+       (values 1 2))))
+  (test-equal? "call-with-inotify-instance return multiple values" b 2))
