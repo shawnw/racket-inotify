@@ -89,7 +89,7 @@
                           (stencil-vector-update sv 0 val flag))])
         (lambda (mask)
           (stencil-vector->list (stencil-vector-update flag-names (fxand (stencil-vector-mask flag-names) (fxnot mask)) 0))))
-      (error "Currently unimplemented for 32 bit")))
+      (raise (make-exn:fail:unsupported "inotify: currently unimplemented for 32 bit" (current-continuation-marks)))))
 
 (define (inotify-set-watch inot path flags)
   (let ([wd (inotify-add-watch (inotify-instance-fd inot) (path->complete-path path) (flags->bitmask 'inotify-set-watch flags))])
