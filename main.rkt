@@ -41,7 +41,7 @@
   #:property prop:evt
   (lambda (self)
     (if (fx= (inotify-instance-start-pos self) (inotify-instance-end-pos self))
-        (handle-evt (unsafe-fd->evt (inotify-instance-fd self) '(read)) (lambda (evt) (read-inotify-event self)))
+        (handle-evt (unsafe-fd->evt (inotify-instance-fd self) 'read) (lambda (evt) (read-inotify-event self)))
         (handle-evt always-evt (lambda (evt) (read-inotify-event self))))))
 
 (struct inotify-watch (descriptor) #:transparent #:extra-constructor-name make-inotify-watch)
