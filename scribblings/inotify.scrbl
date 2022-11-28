@@ -55,13 +55,18 @@ Returns true if the given argument is an inotify watch descriptor.
 
 @defproc[(inotify-set-watch [in inotify-instance?] [file path-string?] [events (listof symbol?)]) inotify-watch?]{
 
-
 Starts watching the given file for the given inotify events, which are
 symbols with the same names as the C constants - @code{'IN_CREATE},
 @code{'IN_MODIFY}, etc. Returns a watch descriptor object that can be
 used to remove the watch, and used as a key for returned events.
 
 Wrapper around the C @hyperlink["https://www.man7.org/linux/man-pages/man2/inotify_rm_watch.2.html"]}{@tt{inotify_add_watch(2)}} syscall.
+
+}
+
+@defproc[(inotify-set-watch* [in inotify-instance?] [watches (listof (list/c path-string? (listof symbol?)))]) (listof inotify-watch?)]{
+
+Adds all the given files and their desired events to the inotify watch list.
 
 }
 

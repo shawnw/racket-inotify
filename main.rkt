@@ -16,6 +16,7 @@
   [open-inotify-instance (--> inotify-instance?)]
   [close-inotify-instance (--> inotify-instance? void?)]
   [inotify-set-watch (--> inotify-instance? path-string? (listof symbol?) inotify-watch?)]
+  [inotify-set-watch* (--> inotify-instance? (listof (list/c path-string? (listof symbol?))) (listof inotify-watch?))]
   [inotify-remove-watch (--> inotify-instance? inotify-watch? void?)]
   (struct inotify-event ([wd inotify-watch?] [flags (listof symbol?)] [cookie exact-nonnegative-integer?] [name (or/c path? #f)]) #:omit-constructor)
   [read-inotify-event (--> inotify-instance? inotify-event?)]
@@ -81,6 +82,10 @@
         (raise-errno "inotify-set-watch")
         (make-inotify-watch wd))))
 
+(define (inotify-set-watch* inot watches)
+  (for/list ([watch (in-list watches)])
+    (inotify-set-watch inot (car watch) (cadr watch))))
+
 (define (inotify-remove-watch inot wd)
   (when (fx< (inotify-rm-watch (inotify-instance-fd inot) (inotify-watch-descriptor wd)) 0)
     (raise-errno "inotify-remove-watch")))
@@ -139,8 +144,11 @@
 
   (check-equal? (path->string (inotify-event-name (read-inotify-event inot))) "a.txt")
   (check-equal? (path->string (inotify-event-name (sync inot))) "b.txt")
+  (define a-b-watches (inotify-set-watch* inot `((,(build-path tmpdir "a.txt") (IN_OPEN)) (,(build-path tmpdir "b.txt") (IN_OPEN)))))
+  (check-equal? (length a-b-watches) 2)
   (check-equal? (inotify-event-flags (read-inotify-event inot)) '(IN_CREATE))
   (check-equal? (inotify-event-wd (read-inotify-event inot)) wd)
+  (check-not-exn (lambda () (inotify-remove-watch inot (car a-b-watches))))
   (thread-wait tid)
   (delete-directory/files tmpdir)
   (check-equal? (inotify-event-flags (read-inotify-event inot)) '(IN_IGNORED))
