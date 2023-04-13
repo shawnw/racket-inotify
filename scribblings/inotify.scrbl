@@ -108,3 +108,21 @@ currently pending.
 Returns an inotify event, or @code{#f} if none are currently pending.
 
 }
+
+@defproc[(inotify-max-user-instances) exact-integer?]{
+
+The maximum number of inotify instances a single UID can have open.
+
+}
+
+@defproc[(inotify-max-user-watches) exact-integer?]{
+
+The maximum number of watches a single UID can have active.
+
+}
+
+@defproc[(inotify-max-queued-events) exact-integer?]{
+
+The maximum number of events that can be queued up waiting to be read.
+
+}

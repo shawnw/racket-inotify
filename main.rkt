@@ -4,7 +4,7 @@
 
 (require ffi/unsafe ffi/unsafe/define ffi/unsafe/define/conventions ffi/unsafe/port
          (rename-in racket/contract [-> -->]) racket/require
-         (for-syntax racket/base (only-in racket/string string-prefix?))
+         (for-syntax racket/base racket/string racket/syntax)
          srfi/74 srfi/160/u8 stencil-vector-utils)
 (require (filtered-in (lambda (name) (and (string-prefix? name "unsafe-fx") (substring name 7))) racket/unsafe/ops))
 (module+ test (require racket/file rackunit))
@@ -24,6 +24,10 @@
   (struct inotify-event ([wd inotify-watch?] [flags (listof symbol?)] [cookie exact-nonnegative-integer?] [name (or/c path? #f)]) #:omit-constructor)
   [read-inotify-event (--> inotify-instance? inotify-event?)]
   [read-inotify-event* (--> inotify-instance? (or/c inotify-event? #f))]
+
+  [inotify-max-queued-events (--> exact-integer?)]
+  [inotify-max-user-instances (--> exact-integer?)]
+  [inotify-max-user-watches (--> exact-integer?)]
   ))
 
 (define-ffi-definer define-inotify-func (ffi-lib #f) #:make-c-id convention:hyphen->underscore)
@@ -138,6 +142,20 @@
   (if (fx= (inotify-instance-start-pos inot) (inotify-instance-end-pos inot))
       #f
       (build-inotify-event inot)))
+
+
+(define-syntax (define-procfs-reader stx)
+  (syntax-case stx ()
+    [(_ name)
+     (with-syntax ([fun-name (format-id #'name "inotify-~a" #'name)]
+                   [file-name (build-path "/proc/sys/fs/inotify"
+                                          (string-replace (symbol->string (syntax-e #'name)) "-" "_"))])
+       #'(define (fun-name)
+           (string->number (call-with-input-file file-name read-line) 10)))]))
+
+(define-procfs-reader max-queued-events)
+(define-procfs-reader max-user-instances)
+(define-procfs-reader max-user-watches)
 
 (module+ test
   ;; Any code in this `test` submodule runs when this file is run using DrRacket
