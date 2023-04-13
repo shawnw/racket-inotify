@@ -2,7 +2,7 @@
 ;;; Racket bindings for Linux inotify API.
 ;;; Copyright 2022 Shawn Wagner <shawnw.mobile@gmail.com>
 
-(require ffi/unsafe ffi/unsafe/define ffi/unsafe/define/conventions ffi/unsafe/port
+(require ffi/unsafe ffi/unsafe/custodian ffi/unsafe/define ffi/unsafe/define/conventions ffi/unsafe/port
          (rename-in racket/contract [-> -->]) racket/require
          (for-syntax racket/base racket/string racket/syntax)
          srfi/74 srfi/160/u8 stencil-vector-utils)
@@ -40,12 +40,12 @@
 (define inotify-event-struct-size (ctype-sizeof inotify-event-struct))
 (define inotify-event-struct-offsets (list->vector (compute-offsets inotify-event-struct-fields)))
 
-(struct inotify-instance (fd port buf [start-pos #:mutable] [end-pos #:mutable])
+(struct inotify-instance (fd port buf [start-pos #:mutable] [end-pos #:mutable] [unreg #:mutable])
   #:extra-constructor-name make-inotify-instance
   #:property prop:evt
   (lambda (self)
     (if (fx= (inotify-instance-start-pos self) (inotify-instance-end-pos self))
-        (handle-evt (unsafe-fd->evt (inotify-instance-fd self) 'read) (lambda (evt) (read-inotify-event self)))
+        (handle-evt (unsafe-fd->evt (inotify-instance-fd self) 'read #f) (lambda (evt) (read-inotify-event self)))
         (handle-evt always-evt (lambda (evt) (read-inotify-event self))))))
 
 (struct inotify-watch (descriptor) #:transparent #:extra-constructor-name make-inotify-watch)
@@ -58,12 +58,19 @@
   (let ([fd (inotify-init)])
     (if (< fd 0)
         (raise-errno "open-inotify-instance")
-        (let ([port (unsafe-file-descriptor->port fd 'inotify '(read))])
+        (let* ([port (unsafe-file-descriptor->port fd 'inotify '(read))]
+               [instance (make-inotify-instance fd port (make-bytes 4096) 0 0 #f)]
+               [unreg (register-finalizer-and-custodian-shutdown
+                       instance
+                       (lambda (inot) (unsafe-fd->evt (inotify-instance-fd inot) 'remove #f))
+                       #:custodian-available values)])
           (file-stream-buffer-mode port 'none)
-          (make-inotify-instance fd port (make-bytes 4096) 0 0)))))
+          (set-inotify-instance-unreg! instance unreg)
+          instance))))
 
 (define (close-inotify-instance inot)
-  (unsafe-fd->evt (inotify-instance-fd inot) 'remove)
+  ((inotify-instance-unreg inot) inot)
+  (unsafe-fd->evt (inotify-instance-fd inot) 'remove #f)
   (close-input-port (inotify-instance-port inot)))
 
 (define call-with-inotify-instance
