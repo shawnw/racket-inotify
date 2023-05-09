@@ -171,9 +171,12 @@
 
   (define tmpdir (make-temporary-directory))
 
+  (define ready-to-begin (make-semaphore))
+
   (define tid
     (thread
      (lambda ()
+       (semaphore-wait ready-to-begin)
        (display-to-file 1 (build-path tmpdir "a.txt"))
        (display-to-file 2 (build-path tmpdir "b.txt"))
        (display-to-file 3 (build-path tmpdir "c.txt"))
@@ -184,6 +187,7 @@
     (call-with-inotify-instance
      (list (list tmpdir '(IN_CREATE)))
      (lambda (inot wds)
+       (semaphore-post ready-to-begin)
        (test-equal? "create a.txt" (path->string (inotify-event-name (read-inotify-event inot))) "a.txt")
        (test-equal? "create b.txt" (path->string (inotify-event-name (sync inot))) "b.txt")
        (define a-b-watches (inotify-set-watch* inot `((,(build-path tmpdir "a.txt") (IN_OPEN)) (,(build-path tmpdir "b.txt") (IN_OPEN)))))
