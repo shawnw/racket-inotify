@@ -1,6 +1,5 @@
 #lang scribble/manual
-@require[@for-label[inotify
-                    racket/base]]
+@require[@for-label[inotify racket/base racket/contract]]
 
 @title{Racket bindings for the Linux inotify API}
 @author[@author+email["Shawn Wagner" "shawnw.mobile@gmail.com"]]
@@ -39,7 +38,7 @@ Wrapper around the C @hyperlink["https://www.man7.org/linux/man-pages/man2/inoti
 
 }
 
-@defproc[(close-inotify-instance [in inotify-instance?]) void?] {
+@defproc[(close-inotify-instance [in inotify-instance?]) void?]{
 
 Closes and frees operating system resources associated with the instance.
 

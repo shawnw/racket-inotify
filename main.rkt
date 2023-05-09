@@ -1,11 +1,12 @@
 #lang racket/base
 ;;; Racket bindings for Linux inotify API.
-;;; Copyright 2022 Shawn Wagner <shawnw.mobile@gmail.com>
+;;; Copyright 2022-2023 Shawn Wagner <shawnw.mobile@gmail.com>
 
 (require ffi/unsafe ffi/unsafe/custodian ffi/unsafe/define ffi/unsafe/define/conventions ffi/unsafe/port
          (rename-in racket/contract [-> -->]) racket/require
          (for-syntax racket/base racket/string racket/syntax)
-         srfi/74 srfi/160/u8 stencil-vector-utils)
+         srfi/74 srfi/160/u8 stencil-vector-utils
+         "private/flags.rkt")
 (require (filtered-in (lambda (name) (and (string-prefix? name "unsafe-fx") (substring name 7))) racket/unsafe/ops))
 (module+ test (require racket/file rackunit))
 
@@ -85,17 +86,15 @@
           (close-inotify-instance inot)
           (apply values results))))]))
 
-(define flags '#hasheq( (IN_ACCESS . 1) (IN_ATTRIB . 4) (IN_CLOSE_WRITE . 8) (IN_CLOSE_NOWRITE . 16) (IN_CREATE . 256) (IN_DELETE . 512) (IN_DELETE_SELF . 1024) (IN_MODIFY . 2) (IN_MOVE_SELF . 2048) (IN_MOVED_FROM . 64) (IN_MOVED_TO . 128) (IN_OPEN . 32) (IN_MOVE . 192) (IN_CLOSE . 24) (IN_DONT_FOLLOW . 33554432) (IN_EXCL_UNLINK . 67108864) (IN_MASK_ADD . 536870912) (IN_ONESHOT . 2147483648) (IN_ONLYDIR . 16777216) (IN_IGNORED . 32768) (IN_ISDIR . 1073741824) (IN_Q_OVERFLOW . 16384) (IN_UNMOUNT . 8192) (IN_ALL_EVENTS . 4095)))
-
 (define (flags->bitmask name flag-list)
   (for/fold ([bitmask 0])
             ([flag (in-list flag-list)])
-    (bitwise-ior bitmask (hash-ref flags flag (lambda () (raise-argument-error name "unknown inotify flag" "flag" flag))))))
+    (bitwise-ior bitmask (hash-ref inotify-flags flag (lambda () (raise-argument-error name "unknown inotify flag" "flag" flag))))))
 
 (define bitmask->flags
   (if (fx= (stencil-vector-mask-width) 58)
       (let ([flag-names (for/fold ([sv (stencil-vector 0)])
-                                  ([(flag val) (in-hash flags)]
+                                  ([(flag val) (in-hash inotify-flags)]
                                    #:when (fx= (fxpopcount32 val) 1))
                           (stencil-vector-update sv 0 val flag))])
         (lambda (mask)
