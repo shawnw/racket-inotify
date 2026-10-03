@@ -1,6 +1,7 @@
 #lang info
 (define collection "inotify")
-(define deps '("base" "stencil-vector-utils" "srfi-lib" "extra-srfi-libs" ("racket" #:platform #rx"linux")))
+(define deps '("c-defs"
+               "base" "stencil-vector-utils" "srfi-lib" "extra-srfi-libs" ("racket" #:platform #rx"linux")))
 (define build-deps '("c-defs" "scribble-lib" "racket-doc" "rackunit-lib"))
 (define scribblings '(("scribblings/inotify.scrbl" ())))
 (define pkg-desc "Bindings to the Linux inotify API")
